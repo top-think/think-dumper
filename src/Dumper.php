@@ -93,8 +93,8 @@ class Dumper
                 {
                     $request = app(Request::class);
                     return [
-                        'uri'        => $request->getUri(),
-                        'method'     => $request->getMethod(),
+                        'uri'        => $request->url(),
+                        'method'     => $request->method(),
                         'identifier' => spl_object_hash($request),
                     ];
                 }
