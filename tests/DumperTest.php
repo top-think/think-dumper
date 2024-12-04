@@ -11,5 +11,6 @@ class DumperTest extends TestCase
     {
         Dumper::dump('aa', 'cc');
         d(['aa' => 'bbb', 'cc' => 'dd']);
+        d($this);
     }
 }
