@@ -2,10 +2,8 @@
 
 namespace think\dumper;
 
-use Symfony\Component\VarDumper\Cloner\VarCloner;
 use Symfony\Component\VarDumper\Dumper\ContextProvider\ContextProviderInterface;
-use Symfony\Component\VarDumper\Dumper\HtmlDumper;
-use Twig\Template;
+use Symfony\Component\VarDumper\VarDumper;
 
 final class SourceContextProvider implements ContextProviderInterface
 {
@@ -21,62 +19,31 @@ final class SourceContextProvider implements ContextProviderInterface
     public function getContext(): ?array
     {
         $trace = debug_backtrace(\DEBUG_BACKTRACE_PROVIDE_OBJECT | \DEBUG_BACKTRACE_IGNORE_ARGS, $this->limit);
+        $trace = array_reverse($trace);
 
-        $file        = $trace[1]['file'];
-        $line        = $trace[1]['line'];
-        $name        = '-' === $file || 'Standard input code' === $file ? 'Standard input code' : false;
-        $fileExcerpt = false;
+        $i    = 0;
+        $file = '-';
+        $line = 0;
 
-        for ($i = 2; $i < $this->limit; ++$i) {
-            if (isset($trace[$i]['class'], $trace[$i]['function'])
-                && 'dump' === $trace[$i]['function']
-                && Dumper::class === $trace[$i]['class']
-            ) {
-                $file = $trace[$i]['file'] ?? $file;
-                $line = $trace[$i]['line'] ?? $line;
+        do {
+            $file = $trace[$i]['file'] ?? $file;
+            $line = $trace[$i]['line'] ?? $line;
 
-                while (++$i < $this->limit) {
-                    if (isset($trace[$i]['function'], $trace[$i]['file']) && empty($trace[$i]['class']) && !str_starts_with($trace[$i]['function'], 'call_user_func')) {
-                        $file = $trace[$i]['file'];
-                        $line = $trace[$i]['line'];
-
-                        break;
-                    } elseif (isset($trace[$i]['object']) && $trace[$i]['object'] instanceof Template) {
-                        $template = $trace[$i]['object'];
-                        $name     = $template->getTemplateName();
-                        $src      = method_exists($template, 'getSourceContext') ? $template->getSourceContext()
-                            ->getCode() : (method_exists($template, 'getSource') ? $template->getSource() : false);
-                        $info     = $template->getDebugInfo();
-                        if (isset($info[$trace[$i - 1]['line']])) {
-                            $line = $info[$trace[$i - 1]['line']];
-                            $file = method_exists($template, 'getSourceContext') ? $template->getSourceContext()
-                                ->getPath() : null;
-
-                            if ($src) {
-                                $src         = explode("\n", $src);
-                                $fileExcerpt = [];
-
-                                for ($i = max($line - 3, 1), $max = min($line + 3, \count($src)); $i <= $max; ++$i) {
-                                    $fileExcerpt[] = '<li' . ($i === $line ? ' class="selected"' : '') . '><code>' . $this->htmlEncode($src[$i - 1]) . '</code></li>';
-                                }
-
-                                $fileExcerpt = '<ol start="' . max($line - 3, 1) . '">' . implode("\n", $fileExcerpt) . '</ol>';
-                            }
-                        }
-                        break;
-                    }
-                }
+            $function = $trace[$i]['function'] ?? null;
+            $class    = $trace[$i]['class'] ?? null;
+            if ($function == 'dump' && ($class == null || $class == Dumper::class || $class == VarDumper::class)) {
                 break;
             }
-        }
+        } while (++$i < $this->limit);
+
+        $name = '-' === $file || 'Standard input code' === $file ? 'Standard input code' : false;
 
         if (false === $name) {
             $name = str_replace('\\', '/', $file);
             $name = substr($name, strrpos($name, '/') + 1);
         }
 
-        $context                 = ['name' => $name, 'file' => $file, 'line' => $line];
-        $context['file_excerpt'] = $fileExcerpt;
+        $context = ['name' => $name, 'file' => $file, 'line' => $line];
 
         if (null !== $this->projectDir) {
             $context['project_dir'] = $this->projectDir;
@@ -88,19 +55,4 @@ final class SourceContextProvider implements ContextProviderInterface
         return $context;
     }
 
-    private function htmlEncode(string $s): string
-    {
-        $html = '';
-
-        $dumper = new HtmlDumper(function ($line) use (&$html) {
-            $html .= $line;
-        }, $this->charset);
-        $dumper->setDumpHeader('');
-        $dumper->setDumpBoundaries('', '');
-
-        $cloner = new VarCloner();
-        $dumper->dump($cloner->cloneVar($s));
-
-        return substr(strip_tags($html), 1, -1);
-    }
 }

@@ -10,7 +10,7 @@ class DumperTest extends TestCase
     public function testDump()
     {
         Dumper::dump('aa', 'cc');
-        d(['aa' => 'bbb', 'cc' => 'dd']);
-        d($this);
+        dump(['aa' => 'bbb', 'cc' => 'dd']);
+        dump($this);
     }
 }

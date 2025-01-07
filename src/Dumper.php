@@ -15,7 +15,7 @@ class Dumper
 {
     private static $handlers;
 
-    public static function dump($var, string $label = null)
+    public static function dump($var, ?string $label = null)
     {
         $token = env('DUMPER_TOKEN');
 
